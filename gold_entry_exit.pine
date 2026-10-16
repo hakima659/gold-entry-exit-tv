@@ -1,0 +1,52 @@
+
+ //@version=6
+indicator("Gold Entry Exit 15M | Hakim", overlay=true, max_labels_count=500)
+
+// Settings
+fastLen = input.int(20, "EMA Fast", minval=1)
+slowLen = input.int(50, "EMA Slow", minval=2)
+rsiLen = input.int(14, "RSI Length", minval=2)
+rsiBuy = input.int(52, "RSI Buy Level")
+rsiSell = input.int(48, "RSI Sell Level")
+showEMA = input.bool(true, "Show EMA Lines")
+
+// Indicators
+emaFast = ta.ema(close, fastLen)
+emaSlow = ta.ema(close, slowLen)
+rsiVal = ta.rsi(close, rsiLen)
+
+// Entry filters
+buySetup = emaFast > emaSlow and close > emaFast and rsiVal >= rsiBuy
+sellSetup = emaFast < emaSlow and close < emaFast and rsiVal <= rsiSell
+
+// Position state
+var int position = 0
+
+buySignal = barstate.isconfirmed and position == 0 and buySetup and not buySetup[1]
+sellSignal = barstate.isconfirmed and position == 0 and sellSetup and not sellSetup[1]
+
+exitLong = barstate.isconfirmed and position == 1 and (ta.crossunder(close, emaFast) or rsiVal < 45)
+exitShort = barstate.isconfirmed and position == -1 and (ta.crossover(close, emaFast) or rsiVal > 55)
+exitSignal = exitLong or exitShort
+
+// Update state
+if buySignal
+    position := 1
+else if sellSignal
+    position := -1
+else if exitSignal
+    position := 0
+
+// EMA lines
+plot(showEMA ? emaFast : na, title="EMA 20", color=color.aqua, linewidth=2)
+plot(showEMA ? emaSlow : na, title="EMA 50", color=color.orange, linewidth=2)
+
+// BUY / SELL / EXIT labels
+plotshape(buySignal, title="BUY", text="BUY", style=shape.labelup, location=location.belowbar, color=color.green, textcolor=color.white, size=size.small)
+plotshape(sellSignal, title="SELL", text="SELL", style=shape.labeldown, location=location.abovebar, color=color.red, textcolor=color.white, size=size.small)
+plotshape(exitSignal, title="EXIT", text="EXIT", style=shape.labeldown, location=location.abovebar, color=color.orange, textcolor=color.white, size=size.small)
+
+// Alerts
+alertcondition(buySignal, title="BUY Signal", message="BUY | {{ticker}} | Price: {{close}} | TF: {{interval}}")
+alertcondition(sellSignal, title="SELL Signal", message="SELL | {{ticker}} | Price: {{close}} | TF: {{interval}}")
+alertcondition(exitSignal, title="EXIT Signal", message="EXIT | {{ticker}} | Price: {{close}} | TF: {{interval}}")
